@@ -48,6 +48,12 @@
 
         <!-- maven-compiler-plugin -->
         <maven.compiler.release>17</maven.compiler.release>
+
+        <arquillian-cube.version>2.1.0.Alpha2-SNAPSHOT</arquillian-cube.version>
+        <wildfly-jar-maven-plugin.version>12.0.0.Final</wildfly-jar-maven-plugin.version>
+        <jkube-openshift-maven-plugin.version>1.18.1</jkube-openshift-maven-plugin.version>
+        <jkube.docker.push.registry>image-registry.openshift-image-registry.svc:5000</jkube.docker.push.registry>
+        <jkube.docker.pull.registry>image-registry.openshift-image-registry.svc:5000</jkube.docker.pull.registry>
     </properties>
 
     <!--
@@ -124,11 +130,10 @@
                 <scope>import</scope>
             </dependency>
 
-            <!--Define the JUnit5 bom. WildFly BOM still contains JUnit4, so we have to declare a version here -->
             <dependency>
-                <groupId>org.junit</groupId>
-                <artifactId>junit-bom</artifactId>
-                <version>${version.junit5}</version>
+                <groupId>org.arquillian.cube</groupId>
+                <artifactId>arquillian-cube-bom</artifactId>
+                <version>${arquillian-cube.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -151,38 +156,28 @@
             <scope>provided</scope>
         </dependency>
 
-        <!-- Test scope dependencies -->
         <dependency>
-            <groupId>org.junit.jupiter</groupId>
-            <artifactId>junit-jupiter</artifactId>
+            <groupId>org.arquillian.cube</groupId>
+            <artifactId>arquillian-cube-openshift-starter</artifactId>
             <scope>test</scope>
         </dependency>
-
         <dependency>
-            <groupId>org.jboss.arquillian.junit5</groupId>
-            <artifactId>arquillian-junit5-container</artifactId>
+            <groupId>org.arquillian.cube</groupId>
+            <artifactId>arquillian-cube-openshift</artifactId>
             <scope>test</scope>
         </dependency>
-
         <dependency>
-            <groupId>org.wildfly.arquillian</groupId>
-            <artifactId>wildfly-arquillian-container-managed</artifactId>
+            <groupId>org.jboss.arquillian.junit</groupId>
+            <artifactId>arquillian-junit-core</artifactId>
             <scope>test</scope>
         </dependency>
-
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.jboss.resteasy</groupId>
             <artifactId>resteasy-client</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <!--See https://issues.redhat.com/browse/WFLY-19779 and https://github.com/wildfly/quickstart/pull/957/
-            httpclient needs commons-logging yet the server uses this instead,
-            to be fully compatible on apps we need to add this dependency whenever commons-logging is needed,
-            but on testing clients like this we could use commons-logging instead -->
-        <dependency>
-            <groupId>org.jboss.logging</groupId>
-            <artifactId>commons-logging-jboss-logging</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
@@ -197,7 +192,6 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>${version.compiler.plugin}</version>
-                <configuration></configuration>
             </plugin>
 
             <!--Build configuration for the WAR plugin: -->
@@ -214,8 +208,8 @@
             <!-- The WildFly plugin deploys your war to a local JBoss AS container -->
             <plugin>
                 <groupId>org.wildfly.plugins</groupId>
-                <artifactId>wildfly-maven-plugin</artifactId>
-                <version>${version.wildfly.maven.plugin}</version>
+                <artifactId>wildfly-jar-maven-plugin</artifactId>
+                <version>${wildfly-jar-maven-plugin.version}</version>
                 <configuration>
                     <feature-packs>
                         <feature-pack>
@@ -226,6 +220,13 @@
                         <!-- layers may be used to customize the server to provision-->
                         <layer>cloud-server</layer>
                     </layers>
+                    <excluded-layers>
+                        <layer>deployment-scanner</layer>
+                    </excluded-layers>
+                    <cloud/>
+                    <plugin-options>
+                        <jboss-fork-embedded>true</jboss-fork-embedded>
+                    </plugin-options>
                 </configuration>
                 <executions>
                     <execution>
@@ -235,16 +236,38 @@
                     </execution>
                 </executions>
             </plugin>
+            <plugin>
+                <groupId>org.eclipse.jkube</groupId>
+                <artifactId>openshift-maven-plugin</artifactId>
+                <version>${jkube-openshift-maven-plugin.version}</version>
+                <executions>
+                    <!--
+                        Do not execute when packaging.
+                        The Arquillian Cube/JKube OpenShift Maven plugin integration will handle that in the integration-tests
+                        phase, see the Maven Failsafe plugin configuration below.
 
+                    <execution>
+                      <goals>
+                        <goal>resource</goal>
+                        <goal>build</goal>
+                      </goals>
+                    </execution>
+                    -->
+                </executions>
+                <configuration>
+                    <enricher>
+                        <config>
+                            <jkube-service>
+                                <name>hello-world-svc</name>
+                            </jkube-service>
+                        </config>
+                    </enricher>
+                </configuration>
+            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-failsafe-plugin</artifactId>
-                <version>${version.failsafe.plugin}</version>
-                <configuration>
-                    <includes>
-                        <include>**/*IT</include>
-                    </includes>
-                </configuration>
+                <version>3.5.3</version>
                 <executions>
                     <execution>
                         <goals>
@@ -253,129 +276,17 @@
                         </goals>
                     </execution>
                 </executions>
+                <configuration>
+                    <systemPropertyVariables>
+                        <version.cube>${project.version}</version.cube>
+                        <cube.fmp.build>true</cube.fmp.build>
+                        <cube.fmp.debug.output>false</cube.fmp.debug.output>
+                        <cube.fmp.logs>true</cube.fmp.logs>
+                        <cube.fmp.system.properties>jkube.docker.push.registry,${jkube.docker.push.registry},jkube.docker.pull.registry,${jkube.docker.pull.registry}</cube.fmp.system.properties>
+                    </systemPropertyVariables>
+                </configuration>
             </plugin>
         </plugins>
     </build>
 
-    <profiles>
-        <profile>
-            <id>openshift</id>
-            <properties>
-                <arquillian-cube.version>2.0.1-SNAPSHOT</arquillian-cube.version>
-                <wildfly-jar-maven-plugin.version>12.0.02.Final</wildfly-jar-maven-plugin.version>
-                <jkube-openshift-maven-plugin.version>1.18.1</jkube-openshift-maven-plugin.version>
-                <jkube.docker.push.registry></jkube.docker.push.registry>
-                <jkube.docker.pull.registry></jkube.docker.pull.registry>
-            </properties>
-            <dependencyManagement>
-                <dependencies>
-                    <dependency>
-                        <groupId>org.arquillian.cube</groupId>
-                        <artifactId>arquillian-cube-bom</artifactId>
-                        <version>${arquillian-cube.version}</version>
-                    </dependency>
-                </dependencies>
-            </dependencyManagement>
-            <dependencies>
-                <dependency>
-                    <groupId>org.arquillian.cube</groupId>
-                    <artifactId>arquillian-cube-openshift-starter</artifactId>
-                    <scope>test</scope>
-                </dependency>
-                <dependency>
-                    <groupId>org.arquillian.cube</groupId>
-                    <artifactId>arquillian-cube-openshift-api</artifactId>
-                    <scope>test</scope>
-                </dependency>
-                <dependency>
-                    <groupId>org.arquillian.cube</groupId>
-                    <artifactId>arquillian-cube-requirement</artifactId>
-                    <scope>test</scope>
-                </dependency>
-            </dependencies>
-            <build>
-                <plugins>
-                    <!-- The WildFly plugin deploys your war to a local JBoss AS container -->
-                    <plugin>
-                        <groupId>org.wildfly.plugins</groupId>
-                        <artifactId>wildfly-jar-maven-plugin</artifactId>
-                        <version>${wildfly-jar-maven-plugin.version}</version>
-                        <configuration>
-                            <feature-packs>
-                                <feature-pack>
-                                    <location>org.wildfly:wildfly-galleon-pack:${version.wildfly.bom}</location>
-                                </feature-pack>
-                            </feature-packs>
-                            <layers>
-                                <!-- layers may be used to customize the server to provision-->
-                                <layer>cloud-server</layer>
-                            </layers>
-                            <excluded-layers>
-                                <layer>deployment-scanner</layer>
-                            </excluded-layers>
-                            <cloud/>
-                            <plugin-options>
-                                <jboss-fork-embedded>true</jboss-fork-embedded>
-                            </plugin-options>
-                        </configuration>
-                        <executions>
-                            <execution>
-                                <goals>
-                                    <goal>package</goal>
-                                </goals>
-                            </execution>
-                        </executions>
-                    </plugin>
-                    <plugin>
-                        <groupId>org.eclipse.jkube</groupId>
-                        <artifactId>openshift-maven-plugin</artifactId>
-                        <version>${jkube-openshift-maven-plugin.version}</version>
-                        <executions>
-                            <!--
-                                Do not execute when packaging.
-                                The Arquillian Cube/JKube OpenShift Maven plugin integration will handle that in the integration-tests
-                                phase, see the Maven Failsafe plugin configuration below.
-
-                            <execution>
-                              <goals>
-                                <goal>resource</goal>
-                                <goal>build</goal>
-                              </goals>
-                            </execution>
-                            -->
-                        </executions>
-                        <configuration>
-                            <enricher>
-                                <config>
-                                    <jkube-service>
-                                        <name>hello-world-svc</name>
-                                    </jkube-service>
-                                </config>
-                            </enricher>
-                        </configuration>
-                    </plugin>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-failsafe-plugin</artifactId>
-                        <configuration>
-                            <systemPropertyVariables>
-                                <version.cube>${project.version}</version.cube>
-                                <cube.fmp.build>true</cube.fmp.build>
-                                <cube.fmp.debug.output>false</cube.fmp.debug.output>
-                                <cube.fmp.logs>true</cube.fmp.logs>
-                                <cube.fmp.system.properties>jkube.docker.push.registry,${jkube.docker.push.registry},jkube.docker.pull.registry,${jkube.docker.pull.registry}</cube.fmp.system.properties>
-                            </systemPropertyVariables>
-                        </configuration>
-                    </plugin>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-surefire-plugin</artifactId>
-                        <configuration>
-                            <skip>true</skip>
-                        </configuration>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-    </profiles>
 </project>
