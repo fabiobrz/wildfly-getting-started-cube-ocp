@@ -50,8 +50,13 @@ Finally, in order to run integration tests to verify the application, issue the 
 
 [source,shell]
 ----
-mvn clean package verify
+mvn clean package verify -Dmaven.home=$(which mvn)
 ----
+
+*Note*:
+
+_The `-Dmaven.home=$(which mvn)` property is required by the JKube OpenShift Maven plugin, in order to run
+the build with a local Maven binary, rather than downloading one from the Internet, which can randomly cause some issues._
 
 Arquillian Cube will use the internal JKube OpenShift Maven plugin integration to generate resources and stream the
 application binaries to OpenShift, for an s2i build to generate the application image,
