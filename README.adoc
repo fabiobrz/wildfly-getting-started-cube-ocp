@@ -43,7 +43,7 @@ Once you have an OpenShift cluster up and running, make sure you log in into it,
 
 [source,shell]
 ----
-oc login --token=sha256~018QvkE347YioUgkRn_m-wMC3KaAP2uWrQnVAGs7gn6 --server=https://api.my-cluster.com:6443
+oc login --token=<YOUR_OCP_TOKEN> --server=https://api.my-cluster.com:6443
 ----
 
 Finally, in order to run integration tests to verify the application, issue the following command:
