@@ -52,8 +52,6 @@
         <arquillian-cube.version>2.1.0.Alpha2</arquillian-cube.version>
         <wildfly-jar-maven-plugin.version>12.0.0.Final</wildfly-jar-maven-plugin.version>
         <jkube-openshift-maven-plugin.version>1.18.1</jkube-openshift-maven-plugin.version>
-        <jkube.docker.push.registry>image-registry.openshift-image-registry.svc:5000</jkube.docker.push.registry>
-        <jkube.docker.pull.registry>image-registry.openshift-image-registry.svc:5000</jkube.docker.pull.registry>
     </properties>
 
     <!--
@@ -174,6 +172,7 @@
         <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
+            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.jboss.resteasy</groupId>
@@ -278,11 +277,11 @@
                 </executions>
                 <configuration>
                     <systemPropertyVariables>
-                        <version.cube>${project.version}</version.cube>
+                        <version.cube>${arquillian-cube.version}</version.cube>
                         <cube.fmp.build>true</cube.fmp.build>
                         <cube.fmp.debug.output>false</cube.fmp.debug.output>
                         <cube.fmp.logs>true</cube.fmp.logs>
-                        <cube.fmp.system.properties>jkube.docker.push.registry,${jkube.docker.push.registry},jkube.docker.pull.registry,${jkube.docker.pull.registry}</cube.fmp.system.properties>
+                        <cube.fmp.system.properties>jkube.docker.push.registry,image-registry.openshift-image-registry.svc:5000,jkube.docker.pull.registry,image-registry.openshift-image-registry.svc:5000</cube.fmp.system.properties>
                         <cube.fmp.local.maven>true</cube.fmp.local.maven>
                     </systemPropertyVariables>
                 </configuration>
