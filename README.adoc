@@ -1,22 +1,23 @@
 
-= getting-started
+= Testing the WildFly `getting-started` example on OpenShift with Arquillian Cube
 
 The `getting-started` project is a simple Jakarta EE application with a HTTP endpoint that is running in
 https://wildfly.org[WildFly].
 
 The `src/main` folder contains a simple 'Hello world' style Jakarta EE application using JAX-RS.
 
+The original example has been slightly modified, to allow testing on OpenShift.
+
 == Building the application
 
-To run the application, you use Maven:
+To build the application, use the following command:
 
 [source,shell]
 ----
 mvn clean package
 ----
 
-Maven will compile the application, provision a WildFly server
-The WildFly server is created in `target/server` with the application deployed in it.
+Maven will compile the application, and provision a https://docs.wildfly.org/bootablejar/[WildFly bootable JAR].
 
 == Running the application
 
@@ -24,24 +25,42 @@ To run the application, run the commands:
 
 [source,shell]
 ----
-cd target/server
-./bin/standalone.sh
+cd target
+java -jar ROOT-bootable.jar
 ----
 
 Once WildFly is running, the application can be accessed at http://localhost:8080/
 
 == Testing the application
 
-To run integration tests to verify the application, you use Maven:
+https://github.com/arquillian/arquillian-cube[Arquillian Cube] is used to test the application on OpenShift.
+So, yes, you need to have an OpenShift cluster at hand to try this, or try one of the following options in case you don't:
+
+- https://developers.redhat.com/products/openshift-local/overview[Red Hat OpenShift Local (formerly Red Hat CodeReady Containers)]
+- https://developers.redhat.com/developer-sandbox[Red Hat Developer Sandbox]
+
+Once you have an OpenShift cluster up and running, make sure you log in into it, with something like:
+
+[source,shell]
+----
+oc login --token=sha256~018QvkE347YioUgkRn_m-wMC3KaAP2uWrQnVAGs7gn6 --server=https://api.my-cluster.com:6443
+----
+
+Finally, in order to run integration tests to verify the application, issue the following command:
 
 [source,shell]
 ----
 mvn clean package verify
 ----
 
-Tests in `src/test` are run against the server in `target/server`.
+Arquillian Cube will use the internal JKube OpenShift Maven plugin integration to generate resources and stream the
+application binaries to OpenShift, for an s2i build to generate the application image,
+which in turn will be executed as a cluster workload and exposed externally via a `Route`.
+
+Tests in `src/test` are run against the remote WildFly application service which is orchestrated by OpenShift.
 
 == Resources
 
 * https://wildfly.org[WildFly]
 * https://docs.wildfly.org[WildFly Documentation]
+* https://github.com/arquillian/arquillian-cube[Arquillian Cube]
